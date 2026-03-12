@@ -1,0 +1,19 @@
+[project]
+name = "skillcorner-tech-test"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "av>=16.1.0",
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.3",
+    "onnx>=1.20.1",
+    "onnxruntime>=1.24.3",
+    "opencv-python-headless>=4.13.0.92",
+    "pandas>=3.0.1",
+    "pyarrow>=23.0.1",
+    "structlog>=25.5.0",
+    "supervision>=0.27.0.post1",
+    "tqdm>=4.67.3",
+]
