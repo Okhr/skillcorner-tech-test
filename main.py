@@ -2,9 +2,11 @@ import argparse
 import os
 import glob
 import hashlib
+import time
 from datetime import datetime
 from src.pipeline import InferencePipeline
 from src.logger import setup_logger, logger
+from src.metrics import start_metrics_server
 from src.config import (
     DEFAULT_DATA_DIR,
     DEFAULT_OUTPUT_DIR,
@@ -42,8 +44,12 @@ def main():
     parser.add_argument("--provider", type=str, default=DEFAULT_PROVIDER, help="ONNX Runtime provider")
     parser.add_argument("--viz_dir", type=str, default=DEFAULT_VIZ_DIR, help="Base directory for visualization frames")
     parser.add_argument("--viz_freq", type=int, default=VIZ_FREQUENCY, help="Visualization frequency (every X frames)")
+    parser.add_argument("--metrics_port", type=int, default=8000, help="Exporter port for Prometheus")
 
     args = parser.parse_args()
+
+    # Start Prometheus Metrics Server
+    start_metrics_server(args.metrics_port)
 
     os.makedirs(args.log_dir, exist_ok=True)
     os.makedirs(args.output_dir, exist_ok=True)
@@ -65,34 +71,50 @@ def main():
         main_logger.warning("no_videos_found", data_dir=args.data_dir)
         return
 
-    main_logger.info("starting_video_processing", num_videos=len(video_paths))
+    main_logger.info("starting_continuous_video_watch", data_dir=args.data_dir)
 
-    for video_path in video_paths:
-        video_id = calculate_file_hash(video_path)
+    try:
+        while True:
+            # Find all video files in data_dir
+            video_extensions = ('.mp4', '.avi', '.mov', '.mkv')
+            video_paths = []
+            for ext in video_extensions:
+                video_paths.extend(glob.glob(os.path.join(args.data_dir, f"*{ext}")))
 
-        output_path = os.path.join(args.output_dir, f"{video_id}.parquet")
-        viz_output_dir = os.path.join(args.viz_dir, video_id)
+            video_paths.sort()
 
-        if os.path.exists(output_path):
-            main_logger.info("skipping_already_processed_video", video_id=video_id, video_path=video_path, output_path=output_path)
-            continue
+            for video_path in video_paths:
+                video_id = calculate_file_hash(video_path)
+                output_path = os.path.join(args.output_dir, f"{video_id}.parquet")
+                viz_output_dir = os.path.join(args.viz_dir, video_id)
 
-        main_logger.info("processing_video", video_id=video_id, video_path=video_path)
+                if os.path.exists(output_path):
+                    continue
 
-        pipeline = InferencePipeline(
-            video_path=video_path,
-            model_size=args.model_size,
-            output_path=output_path,
-            log_frequency=args.log_freq,
-            target_fps=args.fps,
-            confidence_threshold=args.conf,
-            provider=args.provider,
-            viz_output_dir=viz_output_dir,
-            viz_frequency=args.viz_freq,
-            video_id=video_id
-        )
+                main_logger.info("processing_video", video_id=video_id, video_path=video_path)
 
-        pipeline.run()
+                pipeline = InferencePipeline(
+                    video_path=video_path,
+                    model_size=args.model_size,
+                    output_path=output_path,
+                    log_frequency=args.log_freq,
+                    target_fps=args.fps,
+                    confidence_threshold=args.conf,
+                    provider=args.provider,
+                    viz_output_dir=viz_output_dir,
+                    viz_frequency=args.viz_freq,
+                    video_id=video_id
+                )
+
+                try:
+                    pipeline.run()
+                except Exception as e:
+                    main_logger.error("video_processing_failed", video_id=video_id, video_path=video_path, error=str(e))
+
+            # Sleep before next scan
+            time.sleep(5)
+    except KeyboardInterrupt:
+        main_logger.info("stopping_continuous_watch")
 
 
 if __name__ == "__main__":

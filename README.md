@@ -4,7 +4,8 @@ This project implements a video inference pipeline for football match analysis. 
 
 ## Core Features
 
-- **Batch Processing**: Automatically processes all videos in the `data/` directory. Skip already processed videos based on output existence.
+- **Continuous Processing**: Automatically watches the `data/` directory for new videos and processes them in real-time. Skip already processed videos based on output existence.
+- **Monitoring Stack**: Integrated Prometheus and Grafana for real-time performance and inference analytics.
 - **File Hashing**: Uses file hashes as `video_id` for consistent tracking across runs.
 - **Automated Model Management**: Automatically downloads RF-DETR models from Hugging Face based on the selected size.
 - **Dynamic Configuration**: Infers input dimensions and normalization parameters directly from model metadata and `preprocessor_config.json`.
@@ -24,21 +25,46 @@ This project implements a video inference pipeline for football match analysis. 
 │   ├── video.py       # Optimized video decoding (PyAV)
 │   ├── inference.py   # ONNX inference engine & model downloader
 │   ├── pipeline.py    # Orchestration & visualization logic
+│   ├── metrics.py     # Prometheus metrics definitions
 │   └── logger.py      # Structured JSON logger setup
+├── grafana/           # Automated dashboard provisioning
 ├── models/            # Automatically managed model storage
 ├── main.py            # CLI Entry point
 ├── Dockerfile         # Production-optimized container
+├── docker-compose.yml # Full stack orchestration (App + Prometheus + Grafana)
+├── prometheus.yml     # Scrape configuration
 ├── pyproject.toml     # Dependency management (uv)
 └── data/              # Input video storage
 ```
 
+## Observability Stack
+
+The project includes a fully automated monitoring stack.
+- **Prometheus**: Aggregates real-time performance (latency per step) and inference metrics (detection counts, spatial distributions).
+- **Grafana**: Pre-configured with a "SkillCorner Inference Dashboard" for immediate visualization.
+
+Access locally via Docker Compose:
+- **Grafana**: [http://localhost:3000](http://localhost:3000) (User: `admin`, Pass: `admin`)
+- **Prometheus**: [http://localhost:9090](http://localhost:9090)
+
 ## Setup and Usage
 
-### Prerequisites
+### 1. Docker Compose (Preferred)
+Use Docker Compose to run the inference service alongside the monitoring stack. This is the simplest way to get everything running with zero manual configuration.
+
+```bash
+docker compose up --build
+```
+Once started, access the following services:
+- **Grafana (Dashboards)**: [http://localhost:3000](http://localhost:3000) (User: `admin`, Pass: `admin`)
+- **Prometheus (Metrics)**: [http://localhost:9090](http://localhost:9090)
+
+### 2. Local Execution
+#### Prerequisites
 - [uv](https://github.com/astral-sh/uv) installed.
 - Python 3.12.
 
-### Local Execution
+#### Steps
 1. **Install dependencies**:
    ```bash
    uv sync
@@ -64,14 +90,31 @@ This project implements a video inference pipeline for football match analysis. 
 - `--conf`: Confidence threshold for detections (default: `0.5`).
 - `--viz_freq`: Visualization frequency - save every X frames (default: `100`).
 
-### Docker Execution
+### Docker Execution (Standalone Container)
 Mount your data and output folders to ensure results persist outside the container.
 
-1. **Build the image**:
+You can pull the prebuilt image from GitHub Container Registry:
+```bash
+docker pull ghcr.io/okhr/skillcorner-tech-test:latest
+```
+
+Or build the image locally:
+```bash
+docker build -t skillcorner-inference .
+```
+
+1. **Run with mounted volumes**:
+   Using the prebuilt image:
    ```bash
-   docker build -t skillcorner-inference .
+   docker run -v $(pwd)/data:/data \
+              -v $(pwd)/output:/output \
+              -v $(pwd)/models:/models \
+              -v $(pwd)/logs:/logs \
+              -v $(pwd)/visualizations:/visualizations \
+              ghcr.io/okhr/skillcorner-tech-test:latest --model_size nano
    ```
-2. **Run with mounted volumes**:
+
+   Alternatively, using a locally built image:
    ```bash
    docker run -v $(pwd)/data:/data \
               -v $(pwd)/output:/output \
@@ -88,5 +131,5 @@ Mount your data and output folders to ensure results persist outside the contain
 3. **ONNX Runtime**: Chosen for its high performance and broad hardware compatibility without the weight of full ML frameworks.
 4. **Parquet Format**: Used for output to support large-scale data handling and efficient storage.
 5. **Supervision Library**: Employed to ensure professional and accurate visualizations.
-6. **Observability**: Periodically (controlled by `--log_freq`), the pipeline logs performance metrics (FPS, detections count). A full telemetry summary is provided upon completion. Each log entry is enriched with `video_id`.
+6. **Observability**: Real-time tracking using Prometheus Histograms for latency (loading, inference, post-processing) and detection analytics. A pre-provisioned Grafana dashboard provides visual insights into pitch density and performance bottlenecks.
 7. **Idempotency**: The pipeline skips videos that already have a corresponding parquet file in the output directory.

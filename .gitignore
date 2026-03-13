@@ -16,6 +16,10 @@ models/
 logs/
 output/
 visualizations/
+prometheus_data/*
+!prometheus_data/.gitkeep
+grafana_data/*
+!grafana_data/.gitkeep
 *.parquet
 *.onnx
 *.mp4

@@ -8,6 +8,13 @@ from tqdm import tqdm
 from .logger import logger
 from .video import VideoProcessor
 from .inference import InferenceEngine
+from .metrics import (
+    INFERENCE_STEP_LATENCY,
+    DETECTIONS_PER_FRAME,
+    DETECTION_BBOX_AREA,
+    DETECTION_SPATIAL_BIN,
+    FRAMES_PROCESSED
+)
 
 
 from .config import (
@@ -57,9 +64,26 @@ class InferencePipeline:
         self.logger.info("start_inference_pipeline")
 
         try:
-            for frame, timestamp, frame_idx in tqdm(self.video_processor.get_frames()):
-                detections_list = self.inference_engine.run(frame)
+            # We wrap the generator to measure loading time
+            video_iter = self.video_processor.get_frames()
 
+            while True:
+                # 1. Load frame
+                load_start = time.time()
+                try:
+                    frame_data = next(video_iter)
+                except StopIteration:
+                    break
+                frame, timestamp, frame_idx = frame_data
+                INFERENCE_STEP_LATENCY.labels(step='load', video_id=self.video_id).observe(time.time() - load_start)
+
+                # 2. Inference
+                infer_start = time.time()
+                detections_list = self.inference_engine.run(frame)
+                INFERENCE_STEP_LATENCY.labels(step='infer', video_id=self.video_id).observe(time.time() - infer_start)
+
+                # 3. Post-processing (Supervision conversion, metrics, etc.)
+                post_start = time.time()
                 # Convert detections to supervision Detections object
                 if detections_list:
                     xyxy = np.array([[d["x1"], d["y1"], d["x2"], d["y2"]] for d in detections_list])
@@ -73,6 +97,41 @@ class InferencePipeline:
                     det["timestamp"] = timestamp
                     det["frame_idx"] = frame_idx
                     self.results.append(det)
+
+                # Update Prometheus Metrics
+                FRAMES_PROCESSED.labels(video_id=self.video_id).inc()
+
+                # Group detections by class for the histogram
+                class_counts = {}
+
+                for det in detections_list:
+                    cls_label = det["label"]
+                    class_counts[cls_label] = class_counts.get(cls_label, 0) + 1
+
+                    # BBox Area
+                    area = (det["x2"] - det["x1"]) * (det["y2"] - det["y1"])
+                    DETECTION_BBOX_AREA.labels(class_name=cls_label, video_id=self.video_id).observe(area)
+
+                    # Spatial Binning (16x9 grid)
+                    # Coordinates are already scaled to frame size in detections_list
+                    # Target size is (1280, 720) in config.py
+                    bin_x = int((det["x1"] + det["x2"]) / 2 / 80)  # 1280 / 16 = 80
+                    bin_y = int((det["y1"] + det["y2"]) / 2 / 80)  # 720 / 9 = 80
+                    # Clip to grid bounds
+                    bin_x = max(0, min(15, bin_x))
+                    bin_y = max(0, min(8, bin_y))
+
+                    DETECTION_SPATIAL_BIN.labels(
+                        bin_x=bin_x,
+                        bin_y=bin_y,
+                        video_id=self.video_id,
+                        class_name=cls_label
+                    ).inc()
+
+                for cls_label, count in class_counts.items():
+                    DETECTIONS_PER_FRAME.labels(class_name=cls_label, video_id=self.video_id).observe(count)
+
+                INFERENCE_STEP_LATENCY.labels(step='post_process', video_id=self.video_id).observe(time.time() - post_start)
 
                 frame_count += 1
                 periodic_detections_count += len(detections_list)
