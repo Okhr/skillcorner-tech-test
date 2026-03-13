@@ -1,5 +1,3 @@
-import os
-
 # Video configuration
 DEFAULT_DATA_DIR = "data"
 TARGET_FPS = 10

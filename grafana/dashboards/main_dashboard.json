@@ -19,6 +19,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "links": [],
+  "refresh": "5s",
   "panels": [
     {
       "datasource": {
@@ -81,8 +82,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 12,
+        "w": 8,
         "x": 0,
         "y": 0
       },
@@ -95,7 +96,7 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
@@ -106,10 +107,32 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (step) (rate(inference_step_latency_seconds_sum[1m])) / sum by (step) (rate(inference_step_latency_seconds_count[1m]))",
-          "legendFormat": "{{step}}",
+          "expr": "sum(rate(inference_step_latency_seconds_sum{step=\"load\"}[1m])) / sum(rate(inference_step_latency_seconds_count{step=\"load\"}[1m]))",
+          "legendFormat": "load",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(inference_step_latency_seconds_sum{step=\"infer\"}[1m])) / sum(rate(inference_step_latency_seconds_count{step=\"infer\"}[1m]))",
+          "legendFormat": "infer",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(inference_step_latency_seconds_sum{step=\"post_process\"}[1m])) / sum(rate(inference_step_latency_seconds_count{step=\"post_process\"}[1m]))",
+          "legendFormat": "post_process",
+          "range": true,
+          "refId": "C"
         }
       ],
       "title": "Avg Latency per Step",
@@ -171,9 +194,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
+        "h": 12,
+        "w": 8,
+        "x": 8,
         "y": 0
       },
       "id": 2,
@@ -185,7 +208,7 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
@@ -216,49 +239,68 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           },
-          "mappings": []
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 12,
-        "w": 24,
-        "x": 0,
-        "y": 8
+        "w": 8,
+        "x": 16,
+        "y": 0
       },
-      "id": 3,
+      "id": 5,
       "options": {
-        "calculateRelative": false,
-        "color": {
-          "mode": "scheme",
-          "scheme": "Oranges",
-          "steps": 64
-        },
-        "exemplars": {
-          "color": "rgba(255,0,255,0.7)"
-        },
-        "filterValues": {
-          "le": 1e-9
-        },
         "legend": {
-          "show": true
-        },
-        "rowsFrame": {
-          "layout": "auto"
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "yHistogram": false
-        },
-        "yAxis": {
-          "axisPlacement": "left",
-          "reverse": true
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "targets": [
@@ -268,15 +310,72 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (bin_x, bin_y) (detection_spatial_bin_total{class_name=\"person\"})",
-          "format": "table",
-          "instant": true,
-          "range": false,
+          "expr": "sum by (class_name) (rate(detection_bbox_area_pixels_sum[1m])) / sum by (class_name) (rate(detection_bbox_area_pixels_count[1m]))",
+          "legendFormat": "{{class_name}}",
+          "range": true,
           "refId": "A"
         }
       ],
-      "title": "Player Density Heatmap",
-      "type": "heatmap"
+      "title": "Avg BBox Area",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 12
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(frames_processed_total)",
+          "legendFormat": "Total Frames",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Total Frames Processed",
+      "type": "stat"
     }
   ],
   "schemaVersion": 39,
