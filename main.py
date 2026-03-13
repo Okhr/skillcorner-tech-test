@@ -48,6 +48,11 @@ def main():
 
     args = parser.parse_args()
 
+    print(f"🚀 Starting SkillCorner Technical Test App")
+    print(f"📂 Data directory: {args.data_dir}")
+    print(f"📦 Model size: {args.model_size}")
+    print(f"📊 Prometheus metrics port: {args.metrics_port}")
+
     # Start Prometheus Metrics Server
     start_metrics_server(args.metrics_port)
 
@@ -68,9 +73,11 @@ def main():
     video_paths.sort()
 
     if not video_paths:
+        print(f"⚠️ No videos found in {args.data_dir}")
         main_logger.warning("no_videos_found", data_dir=args.data_dir)
         return
 
+    print(f"🔍 Starting continuous video search in {args.data_dir}...")
     main_logger.info("starting_continuous_video_watch", data_dir=args.data_dir)
 
     try:
@@ -91,6 +98,7 @@ def main():
                 if os.path.exists(output_path):
                     continue
 
+                print(f"🎬 New video found: {os.path.basename(video_path)} (ID: {video_id})")
                 main_logger.info("processing_video", video_id=video_id, video_path=video_path)
 
                 pipeline = InferencePipeline(

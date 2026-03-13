@@ -23,10 +23,11 @@ COPY src/ src/
 COPY main.py .
 
 # Create directories for mounting and runtime data
-RUN mkdir -p /data /output /app/models /logs /visualizations
+RUN mkdir -p data output models logs visualizations
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV UV_CACHE_DIR=/tmp/uv-cache
 
 # Entrypoint
-ENTRYPOINT ["uv", "run", "python", "main.py", "--data_dir", "/data", "--output_dir", "/output", "--model_size", "nano", "--log_dir", "/logs", "--viz_dir", "/visualizations"]
+ENTRYPOINT ["uv", "run", "python", "main.py", "--data_dir", "data", "--output_dir", "output", "--model_size", "nano", "--log_dir", "logs", "--viz_dir", "visualizations"]

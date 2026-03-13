@@ -11,11 +11,16 @@ wheels/
 
 # Project-specific files and outputs
 doc/
-data/
-models/
-logs/
-output/
-visualizations/
+data/*
+!data/.gitkeep
+models/*
+!models/.gitkeep
+logs/*
+!logs/.gitkeep
+output/*
+!output/.gitkeep
+visualizations/*
+!visualizations/.gitkeep
 prometheus_data/*
 !prometheus_data/.gitkeep
 grafana_data/*
